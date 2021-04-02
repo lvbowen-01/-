@@ -1,0 +1,1254 @@
+//main函数是主函数//
+
+Dim time_code
+Dim decision
+
+//**这里必须手动输入当前页面的值!否则默认是第一天**//
+
+time_code = 101
+
+Do
+	
+	Call main (time_code)
+	
+	Select Case time_code
+	
+		Case 124
+			time_code = 201
+		Case 224
+			time_code = 301
+		Case 324
+			time_code = 401
+		Case Else
+			time_code = time_code + 1
+			
+	End Select
+	
+	If time_code = 407 Then 
+		Exit Do
+	End If
+	
+Loop
+
+Function main(main_time)
+	
+	TracePrint "进入主程序"
+	Dim main_interface, main_intX, main_intY
+	Dim main_mood, main_pp, main_hc, main_speed, main_sp
+	
+	KeepCapture
+	main_interface = FindPic(0, 0, 0, 0, "Attachment:i_norm-main.png|Attachment:i_precamp-main.png", "000000", 0, 0.8, main_intX, main_intY)	
+	main_sp = Discrimination_sp(main_interface)
+	ReleaseCapture
+	
+	Select Case main_time
+		
+		Case 209, 224, 308, 324, 406
+			If main_sp > 180 Then 
+				Traceprint "main:需要选技能"
+				EndScript
+			End If
+	
+	End Select		
+	
+	Select Case main_interface
+	
+		Case 0
+			
+			TracePrint "main:当前是正常界面"
+			main_mood = Discrimination_mood()
+			main_pp = Discrimination_pp()
+			main_hc = Discrimination_hc()
+			main_speed = Discrimination_speed()
+			
+			Decide_main(main_time, main_mood, main_pp, main_hc, main_speed)
+			
+		Case 1
+			
+			TracePrint "main:当前是比赛界面"
+			Decide_main(main_time, -1, -1, -1, -1)
+			
+		Case Else
+			TracePrint "（报错，需重启）main:找不到主界面"
+			EndScript
+			
+	End Select
+	
+	Call tonew(main_time, decision)
+
+End Function
+
+Function Decide_main(dm_time, dm_mood, dm_pp, dm_hc, dm_speed)
+	
+	TracePrint "进入dm函数"
+	Dim dm_time_1 = dm_time
+	Decide_main = 0
+	
+	Select Case dm_time
+	
+		Case 112, 209, 222, 224, 320, 324, 402, 404, 406
+			TracePrint "dm:这回合是正式比赛"
+			
+			If dm_time_1 = 112 Then 
+				TracePrint "dm:这回合还是出道赛"
+				Call Action_race("start", dm_time)
+			Else 
+				Call Action_race("championship", dm_time)
+			End If
+			
+		Case 120, 121, 123, 124, 203, 206, 207, 210, 217, 218, 220, 221, 302, 303, 305, 306, 308, 309, 311, 318, 319, 322, 323
+			TracePrint "dm:这回合是外出比赛"
+			If dm_hc = False Then 
+				Call Action_heal()
+			Else 
+				Call Action_race("race", dm_time)
+			End If
+			
+		Case 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 113, 114, 115, 116, 117, 118, 119, 122, 201, 202, 204, 205, 208, 211, 219, 223, 301, 304, 307, 310, 317, 321, 401, 403, 405
+			TracePrint "dm:这回合不能比赛"	
+			
+			Select Case dm_time_1
+				Case 101
+					TracePrint "dm:这回合是第一天，训练"	
+					Call Action_train ("none", True)
+				Case Else
+					Call Decide_rest(dm_time, dm_mood, dm_pp, dm_hc)	
+			End Select
+			
+		Case 213, 214, 215, 216, 313, 314, 315, 316
+			TracePrint "dm:这回合在夏日合宿"	
+			
+			If dm_speed > 570 Then 
+				
+				TracePrint "dm:允许外出比赛"	
+				Select Case dm_time_1
+				
+					Case 313, 316
+						TracePrint "dm:这回合休息"	
+						Call Action_rest()
+					Case 314, 315
+						TracePrint "dm:这回合外出比赛"
+						Call Action_race("race", dm_time)
+					
+				End Select
+				
+			Else 
+				
+				Select Case dm_pp
+				
+					Case "Low"
+						TracePrint "dm:体力低，这回合休息"
+						Call Action_rest()
+//					Case "Middle"
+//						If Finder_image("i_summer-main_color-cycle") = True Then 
+//							TracePrint "dm:有彩圈，这回合训练"
+//							Call Action_train("none", False)
+//						ElseIf dm_time_1 Mod 100 = 16 Then
+//							TracePrint "dm:最后一天了，这回合训练"
+//							Call Action_train("none", False)
+//						Else 
+//							TracePrint "dm:没有彩圈，这回合休息"
+//							Call Action_rest()
+//						End If
+					Case Else
+						TracePrint "dm:体力足够，这回合训练"
+						Call Action_train("none", False)
+					
+				End Select
+			End If
+			
+		Case Else
+			TracePrint "dm:这回合在夏日合宿之前"	
+			
+			If dm_hc = False Then 
+				TracePrint "dm:有病先治病"	
+				Call Action_heal()
+			ElseIf dm_time_1 = 312 And dm_speed > 570 Then
+				TracePrint "dm:速度达标，可以比赛"
+				Call Action_race("race", dm_time)	
+			Else 
+			
+				Select Case dm_pp
+				
+					Case "High"
+						TracePrint "dm:高体力，训练智力"
+						Call Action_train("intelligence", False)
+					Case Else
+						TracePrint "dm:低体力，休息"
+						Call Action_rest()
+					
+				End Select
+				
+			End If
+				
+	End Select
+	TracePrint "离开dm函数"
+	
+End Function
+
+Function Decide_rest(dr_time, dr_mood, dr_pp, dr_hc)
+	
+	TracePrint "进入dr函数"
+	If dr_hc = False Then 
+		TracePrint "dr:生病了，需要治疗"
+		Call Action_heal()
+	ElseIf dr_mood < 4 Then
+		TracePrint "dr:不高兴，需要外出"
+		Call Action_out()
+	ElseIf dr_pp = "Low" Then
+		TracePrint "dr:没力气，需要休息"
+		Call Action_rest()
+	ElseIf dr_time < 200 Then
+		TracePrint "dr:状态好，那就训练，这是第一年"
+		Call Action_train("none", True)
+	Else 
+		TracePrint "dr:状态好，那就训练，这不是第一年"
+		Call Action_train("none", False)
+	End If
+	TracePrint "离开dr函数"
+End Function
+
+Function Decide_train(dt_firsty)
+	
+	TracePrint "进入dt函数"
+	
+	//1. 先复位到跑步//
+	Dim dt_x, dt_y
+	KeepCapture
+	FindPic 0, 0, 0, 0, "Attachment:i_train_decision.png", "000000", 0, 0.8, dt_x, dt_y
+	
+	If dt_x > 60 and dt_x < 250 Then 
+		TracePrint "dt:当前停留在speed界面"
+	ElseIf dt_x > 250 Then
+		TracePrint "dt:当前停留在非speed界面"
+		Call Tap_single("p_train_speed", 500)
+	Else 
+		TracePrint "（报错）dt:未找到决定图标"
+	End If
+	ReleaseCapture
+	
+	//2. 开始获取和分析数据，不支持识别彩圈//
+	Decide_train = "none"
+	Dim dt_maxpeer
+	Dim dt_peer(4) = {0, 0, 0, 0, 0}
+	Dim dt_speednum = {0, 0, 0, 0, 0}
+	dt_speednum = SmartOcr(114,1282,200,1324) + 0
+	TracePrint "dt:检测到速度为"&dt_speednum
+	
+	If dt_firsty = true Then 
+		
+		TracePrint "dt:这是第一年，策略是获取羁绊"
+		
+		dt_peer(0) = Discrimination_peernum()
+		TracePrint "dt:速度界面有同伴"&dt_peer(0)&"个"
+		
+		Call Tap_single("p_train_endurance", 500)
+		dt_peer(1) = Discrimination_peernum()
+		TracePrint "dt:耐力界面有同伴"&dt_peer(1)&"个"
+	 	
+		Call Tap_single("p_train_strength", 500)
+		dt_peer(2) = Discrimination_peernum()
+		TracePrint "dt:力量界面有同伴"&dt_peer(2)&"个"
+		
+		Call Tap_single("p_train_nature", 500)
+		dt_peer(3) = Discrimination_peernum()
+		TracePrint "dt:根性界面有同伴"&dt_peer(3)&"个"
+		
+		Call Tap_single("p_train_intelligence", 500)
+		dt_peer(4) = Discrimination_peernum()
+		TracePrint "dt:智力界面有同伴"&dt_peer(4)&"个"
+		
+		Call Tap_single("p_train_speed", 500)
+			
+		dt_maxpeer = Max_num(dt_peer(0), dt_peer(1), dt_peer(2), dt_peer(3), dt_peer(4))
+		TracePrint "dt:界面最多的助手可达"&dt_maxpeer&"个"
+		
+	End If
+
+	//3. 开始做出决策//
+	If dt_firsty = true Then
+		
+		Select Case dt_maxpeer
+			
+			Case dt_peer(0)
+				Decide_train = "speed"
+			Case dt_peer(4)
+				Decide_train = "intelligence"
+			Case dt_peer(2)
+				Decide_train = "strength"
+			Case dt_peer(1)
+				Decide_train = "endurance"
+			Case Else
+				Decide_train = "nature"
+		
+		End Select
+		
+	Else 
+		
+		TracePrint "dt:这不是第一年，策略是训练speed"
+		If dt_speednum > 600 Then 
+			TracePrint "dt:速度足够了，训练力量"
+			Decide_train = "strength"
+		Else 
+			TracePrint "dt:速度还不够，训练速度"
+			Decide_train = "speed"
+		End If
+		
+	End If
+	
+	TracePrint "退出dt函数"
+	
+End Function
+
+Function Max_num(num1, num2, num3, num4, num5)
+		
+		Dim n
+		Dim num(4) = {num1, num2, num3, num4, num5}
+		Dim basic_num = 0
+		
+		For x = 0 To 4 Step 1
+			If num(x) > basic_num Then 
+				basic_num = num(x)
+			End If
+		Next
+		
+		Max_num = basic_num
+		
+End Function
+
+Function Discrimination_peernum()
+	
+	TracePrint "进入dp函数"
+	
+	Dim dp_loc, dp_x, dp_y
+	Dim dp_acum = 0
+	Dim dp_peerloc_x1(5) = {890, 890, 890, 890, 890, 890}
+	Dim dp_peerloc_x2(5) = {1040, 1040, 1040, 1040, 1040, 1040}
+	Dim dp_peerloc_y1(5) = {285, 460, 635, 810, 985, 1160}
+	Dim dp_peerloc_y2(5) = {460, 635, 810, 985, 1160, 1335}
+	
+	For dp_loc = 0 To 5 Step 1
+		TracePrint "dp:检查第"&dp_loc+1&"个位置"
+		KeepCapture
+		FindPic dp_peerloc_x1(dp_loc), dp_peerloc_y1(dp_loc), dp_peerloc_x2(dp_loc), dp_peerloc_y2(dp_loc), "Attachment:i_train_sp-peer.png|Attachment:i_train_str-peer.png|Attachment:i_train_int-peer.png|Attachment:i_train_end-peer.png","000000",0, 0.95, dp_x, dp_y
+		If dp_x > -1 Then 
+		 	TracePrint "dp:这个位置有同伴"
+			dp_acum = dp_acum + 1
+		End If
+		ReleaseCapture
+	Next
+	
+	Discrimination_peernum = dp_acum
+	TracePrint "离开dp函数"
+	
+End Function
+
+Function Discrimination_mood()
+	
+	Dim Dmo_case, Dmo_x, Dmo_y
+	Dmo_case = -1
+	
+	KeepCapture
+	Dmo_case = FindPic(0, 0, 0, 0, "Attachment:i_main_ssr-mood.png|Attachment:i_main_sr-mood.png|Attachment:i_main_r-mood.png","000000",0, 0.9, Dmo_x, Dmo_y)
+	ReleaseCapture 
+	
+	Select Case Dmo_case
+	
+		Case 0
+			TracePrint "main：绝好调"
+			Discrimination_mood = 5
+		Case 1
+			TracePrint "main：好调"
+			Discrimination_mood = 4
+		Case 2
+			TracePrint "main：普通"
+			Discrimination_mood = 3
+		Case Else
+			TracePrint "main：不调和绝不调"
+			Discrimination_mood = -1
+			
+	End Select
+	
+End Function
+
+Function Discrimination_pp()
+	
+	Dim Dpp_high, Dpp_middle, Dpp_low
+	
+	//和空槽颜色进行比较//
+	Dpp_high = CmpColor(755, 244, "757575", 0.9)
+	Dpp_middle = CmpColor(675,236, "757575", 0.9)
+	Dpp_low = CmpColor(572,240, "757575", 0.9)
+	
+	If Dpp_high = -1 Then 
+		TracePrint "main:满体力"
+		Discrimination_pp = "Full"
+	ElseIf Dpp_middle = -1 Then
+		TracePrint "main:高体力"
+		Discrimination_pp = "High"
+	ElseIf Dpp_low = -1 Then
+		TracePrint "main:中等体力"
+		Discrimination_pp = "Middle" 
+	Else 
+		TracePrint "main:低体力"
+		Discrimination_pp = "Low"
+	End If
+	
+End Function
+
+Function Discrimination_hc()
+	
+	Discrimination_hc = True
+	If Finder_image("i_norm-main_bad-health") = True Then 
+		Discrimination_hc = False
+		TracePrint "main:发现疾病"
+	End If
+	
+End Function
+
+Function Discrimination_speed()
+	
+	Dim D_speed = SmartOcr(114,1282,200,1324) + 0
+	Discrimination_speed = D_speed
+	TracePrint "main:检测到速度为"&D_speed
+	
+End Function
+
+Function Discrimination_sp(dsp_choice)
+	
+	Dim D_sp
+	If dsp_choice = 0 Then 
+		D_sp = SmartOcr(900,1285,1040,1353) + 0
+		Discrimination_sp = D_sp
+		TracePrint "main:检测到技能点数为"&D_sp
+	Else 
+		D_sp = SmartOcr(906,1382,1036,1448) + 0
+		Discrimination_sp = D_sp
+		TracePrint "main:检测到技能点数为"&D_sp
+	End If
+	
+End Function
+
+Function Tonew(tn_time, tn_decision)
+	
+	TracePrint "进入tn函数"
+	Dim tn_page, tn_case, tn_race, tn_record, tn_x, tn_y
+	tn_record = 0
+	tn_race = 0
+
+	For tn_page = 1 To 25 Step 1
+	
+		TracePrint "tn:开始第"&tn_page&"次tn循环"
+
+//		If tn_record = 0 Then 
+//			
+//			TracePrint "tn:进入判断"
+//			If tn_time = 206 or tn_time = 306 Then 
+//				TracePrint "tn:寻找继承"
+//				KeepCapture 
+//				tn_case = FindPic(0, 0, 0, 0, "Attachment:i_event_success.png","000000",0, 0.9, tn_x, tn_y)
+//				ReleaseCapture 
+//				If tn_case > 0 Then 
+//					TracePrint "tn:找到继承事件，tn_page重置，开始执行操作"
+//					tn_record = 1
+//					tn_page = 1
+//					Call Tap_single("p_event_success_button", 500)
+//				End If
+//			End If
+//			
+//			If tn_time = 124 or tn_time = 312 Then 
+//				TracePrint "tn:寻找生涯任务"
+//				KeepCapture
+//				tn_case = FindPic(0, 0, 0, 0, "Attachment:i_race_race-finished.png,","000000",0, 0.9, tn_x, tn_y)
+//				ReleaseCapture 
+//				If tn_case > 0 Then 
+//					TracePrint "tn:生涯任务完成，tn_page重置，开始执行操作"
+//					tn_page = 1
+//					Call Tap_single("p_race_race-finished_confirm", 1000)
+//					Call Check_error_s("i_race_race-goal", 1000)
+//					Call Tap_single("p_race_race-goal_confirm", 500)
+//				End If
+//			End If
+//			
+//			If decision = "out" Then 
+//				KeepCapture
+//				tn_case = FindPic(0, 0, 0, 0, "Attachment:i_out_doll.png", "000000", 0, 0.9, tn_x, tn_y)
+//				ReleaseCapture
+//				If tn_case > 0 Then 
+//					TracePrint "（无需重启）tn:抓娃娃，需要手操，脚本停止"
+//					tn_page = 1
+//					EndScript
+//				End If
+//			End If
+//			
+//		End If
+		
+		KeepCapture
+		tn_case = FindPic(0, 0, 0, 0, "Attachment:i_main.png|Attachment:i_event_5ch.png|Attachment:i_event_3ch.png|Attachment:i_event_2ch.png|Attachment:i_reconnection.png|Attachment:i_event_success.png|Attachment:i_race_race-finished.png|Attachment:i_main_warn.png","000000",0, 0.9, tn_x, tn_y)
+		ReleaseCapture 
+		
+		TracePrint tn_case
+		Select Case tn_case
+			Case 0
+			
+				TracePrint "tn:找到主界面"
+				TracePrint "退出tn函数"
+				Exit Function
+				
+			Case 1
+			
+				TracePrint "tn:找到五选项事件，tn_page重置，开始执行操作"
+			
+				//注意：这里没有设置 check，请使用自主延迟//
+				Call Tap_single("p_event_5ch_1", 500)
+				Call Tap_single("p_event_5ch_2", 500)
+				Call Tap_single("p_event_5ch_1", 500)
+				Call Tap_single("p_event_5ch_2", 500)
+				Call Tap_single("p_event_5ch_1", 500)
+				Call Tap_single("p_event_5ch_2", 500)	
+			
+			Case 2
+			
+				TracePrint "tn:找到三选项事件，tn_page重置，开始执行操作"
+				
+				If tn_time = 224 Then 
+					TracePrint "tn:第三年新年事件，点击第二个选项"
+					Call Tap_single("p_event_3ch_2", 500)
+				Else 
+					TracePrint "tn:不是第三年新年事件，点击第一个选项"
+					Call Tap_single("p_event_3ch_1", 500)
+				End If
+				
+			Case 3
+			
+				TracePrint "tn:找到二选项事件，tn_page重置，开始执行操作"
+			
+				If decision = "race" and tn_race = 0 Then 
+					TracePrint "tn:在比赛日且未经过比赛选项，点击第二个选项"
+					Call Tap_single("p_event_2ch_2", 500)
+					tn_race = 1
+				Else 
+					TracePrint "tn:比赛日的比赛后或非比赛日，点击第一个选项"
+					Call Tap_single("p_event_2ch_1", 500)
+				End If
+					
+			Case 5
+				
+				TracePrint "tn:找到继承事件，tn_page重置，开始执行操作"
+				Call Tap_single("p_event_success_button", 1300)
+				
+			Case 4
+				
+				TracePrint "tn:网络断连"
+				Call Tap_single("p_reconnection_confirm", 500)
+				
+			Case 6
+				
+				TracePrint "tn:生涯任务完成，tn_page重置，开始执行操作"
+				Call Tap_single("p_race_race-finished_confirm", 1000)
+				Call Check_error_s("i_race_race-goal", 1000)
+				Call Tap_single("p_race_race-goal_confirm", 500)
+				
+			Case 7
+				
+				TracePrint "tn:目标警告"
+				Call Tap_single("p_main_warn_quit", 500)
+				
+			Case Else
+				
+				TracePrint "（报错）tn:未发现可用事件"
+				
+		End Select
+		
+	Next	
+
+//		ElseIf Finder_image("i_main_warn-windows") = True Then
+//
+//			TracePrint "tn:找到警告弹框"
+//			Call Tap_single("p_main_warn-windows_confirm", 500)
+	
+	TracePrint "（报错, 需重启）tn:未进入主界面"
+	EndScript
+	
+End Function
+
+Function Finder_image(fi_code)
+	
+	TracePrint "进入fi函数"
+	Dim fi_x, fi_y, fi_train
+	Finder_image = False
+	
+	
+	Select Case fi_code
+	
+		Case "i_train"
+			TracePrint "fi:被要求检索图片：i_train.png"
+			KeepCapture
+			fi_train = FindPic (0, 0, 0, 0, "Attachment:i_train_1.png|Attachment:i_train_2.png", "000000", 0, 0.8, fi_x, fi_y)
+			If fi_train > -1 Then 
+				Finder_image = True
+				TracePrint "fi:界面内已检索到图片：i_train.png"
+			Else 
+				TracePrint "（报错）fi:界面内未能检索到图片：i_train.png"	
+			End If
+			ReleaseCapture 
+			
+		Case "i_race_race-result"
+			TracePrint "fi:被要求检索图片：i_race_race-result.png"
+			KeepCapture
+			fi_train = FindPic (0, 0, 0, 0, "Attachment:i_race_race-result_1.png|Attachment:i_race_race-result_2.png", "000000", 0, 0.8, fi_x, fi_y)
+			If fi_train > -1 Then 
+				Finder_image = True
+				TracePrint "fi:界面内已检索到图片：i_race_race-result.png"
+			Else 
+				TracePrint "（报错）fi:界面内未能检索到图片：i_race_race-result.png"	
+			End If
+			ReleaseCapture 
+		
+		Case Else
+			TracePrint "fi:被要求检索图片："&fi_code&".png"
+			KeepCapture
+			FindPic 0, 0, 0, 0, "Attachment:"&fi_code&".png", "000000", 0, 0.9, fi_x, fi_y
+			If fi_x > -1 Then 
+				Finder_image = True
+				TracePrint "fi:界面内已检索到图片："&fi_code&".png"
+			Else 
+				TracePrint "（报错）fi:界面内未能检索到图片："&fi_code&".png"	
+			End If
+			ReleaseCapture 
+			
+	End Select
+
+	TracePrint "退出fi函数"
+	
+End Function
+
+Function Fi_sub(fis_code)
+	
+	Dim fi_x, fi_y
+	Fi_sub = False
+	TracePrint "fi:被要求检索图片："&fis_code&".png"
+	KeepCapture
+	FindPic 0, 0, 0, 0, "Attachment:"&fis_code&".png", "000000", 0, 0.9, fi_x, fi_y
+	If fi_x > -1 Then 
+		Fi_sub = True
+		TracePrint "fi:界面内已检索到图片："&fis_code&".png"
+	Else 
+		TracePrint "（报错）fi:界面内未能检索到图片："&fis_code&".png"	
+	End If
+	ReleaseCapture
+	
+End Function
+
+Function Tap_single(ts_code, ts_delay)
+	
+	TracePrint "进入ts函数"
+	Select Case ts_code
+
+
+		Case "p_reconnection_confirm" //任何界面上点击重连
+			Tap 767,1257 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+
+		Case "p_main_warn_quit" //主界面上点击目标完成警告
+			Tap 198,1370 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+				
+		Case "p_norm-main_heal" //主界面上点击治疗
+			Tap 255,1689 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_norm-main_out" //主界面上点击外出
+			Tap 563,1692 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_norm-main_rest" //主界面上点击休息
+			Tap 147,1488 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+
+		Case "p_norm-main_train" //主界面上点击训练
+			Tap 516,1485 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_norm-main_skill" //主界面上点击技能
+			Tap 917,1480 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_prechamp-main_skill" //比赛主界面上点击技能
+			Tap 319,1616 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_skill_confirm" //技能界面上点击确认
+			Tap 544,1607 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_skill_windows_confirm" //技能界面弹窗上点击确认
+			Tap 731,1766 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_skill_quit" //技能界面上点击返回
+			Tap 145,1850 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_skill_windows_quit" //技能界面弹窗上点击返回
+			Tap 550,1248 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_norm-main_race" //主界面上点击比赛
+			Tap 847,1710 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+
+		Case "p_precamp-main_race" //比赛主界面上点击比赛
+			Tap 766,1621 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+					
+		Case "p_train_speed" //训练界面上点击速度
+			Tap 157,1565 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_train_endurance" //训练界面上点击耐力
+			Tap 351,1565 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_train_strength" //训练界面上点击力量
+			Tap 539,1565 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_train_nature" //训练界面上点击根性
+			Tap 734,1565 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_train_intelligence" //训练界面上点击智力
+			Tap 922,1565 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+
+		Case "p_race_warn-windows_confirm" //连赛弹窗警告点击确认
+			Tap 779,1247 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+		
+		Case "p_race_selrace_confirm" //比赛选择点击确认
+			Tap 754,1635 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+				
+		Case "p_race_selrace_windows_confirm" //比赛选择弹窗点击确认
+			Tap 796,1391 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_race_prerace_strategy" //比赛策略点击
+			Tap 879,1125 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code	
+		
+		Case "p_race_prerace_strategy_ahead" //先马策略点击
+			Tap 658,1164 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+		
+		Case "p_race_prerace_strategy_confirm" //策略点击确认
+			Tap 763,1384 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_race_prerace_skip" //比赛跳过
+			Tap 384,1757 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+
+		Case "p_race_race-result_confirm" //比赛结果点击确认
+			Tap 525,1773 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+		
+		Case "p_race_race-reward_confirm" //比赛奖励点击确认
+			Tap 755,1771 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+		
+		Case "p_race_race-finished_confirm" //生涯比赛结束点击确认
+			Tap 527,1667 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+		
+		Case "p_race_race-goal_confirm" //生涯比赛目标点击确认
+			Tap 495,1662 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_event_2ch_1" //二选项事件，点击第一个选项-其他情形
+			Tap 73,1078 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+
+		Case "p_event_2ch_2" //二选项事件，点击第二个选项-比赛日赛后选择
+			Tap 77,1244 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+
+		Case "p_event_3ch_1" //三选项事件，点击第一个选项-其他情形
+			Tap 76,907 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_event_3ch_2" //三选项事件，点击第二个选项-第三年新年
+			Tap 75,1077 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code	
+	
+		Case "p_event_5ch_1" //五选项事件，点击第五个选项
+			Tap 75,1244 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_event_5ch_2" //五选项事件，点击第二个选项
+			Tap 78,1245 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+			
+		Case "p_event_success_button" //继承事件，点击继承
+			Tap 525,1584 
+			Delay ts_delay
+			TracePrint "ts:已找到点坐标并点击"&ts_code
+
+		Case Else
+			TracePrint "（报错）ts:库中未找到要求点击代码："&ts_code
+	End Select
+	
+	TracePrint "离开ts函数"
+	
+End Function
+
+Function Tap_multiple(tm_code, tm_times)
+	
+	TracePrint "进入tm函数"
+	Dim tm_counter
+	
+	Select Case tm_code
+	
+		Case "p_race_prerace_corner"
+			For tm_counter = 1 to tm_times Step 1 
+				Tap 81,356
+				Delay 500
+			Next
+
+		Case "p_race_race-result_corner"
+			For tm_counter = 1 to tm_times Step 1 
+				Tap 81,356
+				Delay 500
+			Next
+		
+		Case Else
+			TracePrint "（报错）tm:库中未找到要求点击代码："&tm_code
+			
+	End Select	
+	
+	TracePrint "离开tm函数"
+	
+End Function
+
+Function Action_heal ()
+
+	TracePrint "进入ah函数"
+	decision = "heal"
+	Call Tap_single ("p_norm-main_heal", 2000)
+	
+	TracePrint "退出ah函数"
+	
+End Function
+
+Function Action_out ()
+	
+	TracePrint "进入ao函数"
+	decision = "out"
+	Call Tap_single ("p_norm-main_out", 2000)	
+
+	TracePrint "退出ao函数"
+	
+End Function
+
+Function Action_rest ()
+	
+	TracePrint "进入ar_rest函数"
+	decision = "rest"
+	Call Tap_single("p_norm-main_rest", 2000)
+	
+	//第一次点击的情形//
+//	If Finder_image("i_rest_windows") = True Then 
+//		Call Tap_single ("p_rest_windows_hook")
+//		Call Tap_single ("p_rest_windows_confirm")
+//	End If
+	
+	TracePrint "退出ar_rest函数"
+	
+End Function
+
+Function Action_train (at_require, at_firsty)
+	
+	Call Tap_single("p_norm-main_train", 500)
+	Call Check_error_s("i_train", 500)
+	TracePrint "进入at函数"
+	decision = "train"
+	If at_require = "none" Then 
+		TracePrint "at:没有被要求具体训练项目，故启动判断函数"
+		at_require = Decide_train(at_firsty)
+	End If
+	
+	Select Case at_require
+	
+		Case "speed"
+			TracePrint "at:被要求训练速度"
+			Call Tap_single("p_train_speed", 500)
+		Case "endurance"
+			TracePrint "at:被要求训练耐力"
+			Call Tap_single("p_train_endurance", 500)
+			Call Tap_single("p_train_endurance", 500)
+		Case "strength"
+			TracePrint "at:被要求训练力量"
+			Call Tap_single("p_train_strength", 500)
+			Call Tap_single("p_train_strength", 500)	
+		Case "nature"
+			TracePrint "at:被要求训练根性"
+			Call Tap_single("p_train_nature", 500)
+			Call Tap_single("p_train_nature", 500)	
+		Case "intelligence"
+			TracePrint "at:被要求训练智力"
+			Call Tap_single("p_train_intelligence", 500)
+			Call Tap_single("p_train_intelligence", 500)
+		Case Else
+			TracePrint "（报错）at:没有被要求的训练项目"
+	
+	End Select		
+	
+	TracePrint "退出at函数"
+	
+End Function
+
+Function Action_race (ar_choice, ar_time)
+	
+	TracePrint "进入ar函数"
+	decision = "race"
+	
+	If ar_choice = "race" Then 
+	 	Call Tap_single ("p_norm-main_race", 500)
+	Else 
+		Call Tap_single ("p_precamp-main_race", 500)
+	End If
+			
+	//三次连赛警告//
+	If Finder_image("i_race_warn-windows") = True Then 
+		TracePrint "ar:发现连赛警告"
+		Call Tap_single ("p_race_warn-windows_confirm", 500)
+	End If
+	
+	Call Check_error_s("i_race_selrace", 2000)
+	TracePrint "ar:进入选赛界面"
+	If ar_choice = "race" Then 
+	 	TracePrint "ar:外出比赛，需要选赛"
+		Call Operation_race (ar_time)
+	End If
+	Call Tap_single ("p_race_selrace_confirm", 500)
+	
+	If Finder_image ("i_race_selrace_windows") = True Then 
+		Call Tap_single ("p_race_selrace_windows_confirm", 500)
+	End If
+	Call Check_error_i("i_race_prerace", 10)
+	TracePrint "ar:进入赛前准备界面"	
+
+	If ar_choice = "start" Then 
+		
+		TracePrint "ar:出道站，调整为先马战术"
+		Call Tap_single("p_race_prerace_strategy", 500)
+		Call Check_error_s("i_race_prerace_strategy", 500)
+		Call Tap_single("p_race_prerace_strategy_ahead", 500)
+		Call Tap_single("p_race_prerace_strategy_confirm", 500)
+		Call Check_error_i("i_race_prerace", 10)
+		
+	End If
+	
+	Call Tap_single ("p_race_prerace_skip", 500)
+	Call Tap_multiple ("p_race_prerace_corner", 10)	
+	Call Check_error_i("i_race_race-result", 10)
+	
+	TracePrint "ar:进入赛后结算页面"
+	If Finder_image("i_race_race-result_2") = True Then 
+	 	TracePrint "（需重启）ar:发现闹钟"
+		EndScript
+	End If
+	
+	If ar_choice = "start" Then
+		If Finder_image("i_race_race-result_winner") = False Then 
+			TracePrint "（需重启）ar:出道站失败"
+			EndScript
+		End If
+	End If
+	
+	Call Tap_single("p_race_race-result_confirm", 500)
+	Call Tap_multiple("p_race_race-result_corner", 2)
+	
+	Call Check_error_s("i_race_race-reward", 1000)
+	Call Tap_single("p_race_race-reward_confirm", 500)
+	
+	//生涯赛需要确定生涯//
+	If ar_choice = "championship" or ar_choice = "start" Then 
+		TracePrint "ar:生涯赛进入确定页面"
+		Call Check_error_i("i_race_race-finished", 30)
+		Call Tap_single("p_race_race-finished_confirm", 1500)
+		Call Check_error_s("i_race_race-goal", 1000)
+		Call Tap_single("p_race_race-goal_confirm", 500)
+	End If
+		
+End Function
+
+Function Operation_skill(os_time)
+	
+	TracePrint "进入os函数"
+	If os_time = 308 Then 
+		Tap_single("p_norm-main_skill", 500)
+	Else 
+		Tap_single("p_prechamp-main_skill", 500)
+	End If
+	
+	Call Check_error_s("i_skill", 1000)
+	Dim os_x, os_y, os_page
+	Dim os_skill = 0
+	Dim os_pt = SmartOcr(809, 603, 952, 654) + 0
+	TracePrint os_pt
+	
+	Select Case os_time
+	
+		Case 209
+			
+			//先拿到大胃王//
+			While os_skill = 0
+				Swipe 500, 1000, 500, 750
+				Delay 3000
+				FindPic 0, 0, 0, 0, "Attachment:大胃王.png", "000000", 0, 0.9, os_x, os_y
+				If os_x > 0 Then 
+					TracePrint "os:找到大胃王"
+					Tap os_x + 760, os_y
+					os_skill = 1
+				End If
+			Wend
+			
+			//再拿其他技能//
+			os_page = 0
+			While os_pt > 180 or os_page < 5
+			
+				FindPic 0, 0, 0, 0, "Attachment:垂直回避.png|"&_
+				"Attachment:末脚.png|"&_
+				"Attachment:小特技能.png|"&_
+				"Attachment:琵琶技能.png|"&_
+				"Attachment:根干.png|"&_
+				"Attachment:中山.png|"&_
+				"Attachment:外圈得意.png|"&_
+				"Attachment:右回.png|"&_
+				"Attachment:道良.png|"&_
+				"Attachment:拔出准备上位.png|"&_
+				"Attachment:拔出准备.png|"&_
+				"Attachment:一文字.png|"&_
+				"Attachment:直线巧者.png|"&_
+				"Attachment:弯道加速.png|"&_
+				"Attachment:上升气流.png|"&_
+				"Attachment:英里中盘.png|", "000000", 0, 0.9, os_x, os_y
+				
+				If os_x > 0 Then 
+					TracePrint "os:找到一个技能"
+					Tap os_x + 760, os_y
+					os_pt = SmartOcr(809, 603, 952, 654) + 0
+				End If
+				
+				TracePrint os_pt
+				Swipe 500, 750, 500, 1000
+				os_page = os_page + 1
+				Delay 3000
+				
+			Wend
+			
+		Case 224, 324, 406
+			
+			os_page = 0
+			While os_pt > 180 or os_page < 6
+			
+				FindPic 0, 0, 0, 0, "Attachment:垂直回避.png|"&_
+				"Attachment:末脚.png|"&_
+				"Attachment:小特技能.png|"&_
+				"Attachment:琵琶技能.png|"&_
+				"Attachment:根干.png|"&_
+				"Attachment:中山.png|"&_
+				"Attachment:外圈得意.png|"&_
+				"Attachment:右回.png|"&_
+				"Attachment:道良.png|"&_
+				"Attachment:拔出准备上位.png|"&_
+				"Attachment:拔出准备.png|"&_
+				"Attachment:一文字.png|"&_
+				"Attachment:直线巧者.png|"&_
+				"Attachment:弯道加速.png|"&_
+				"Attachment:上升气流.png|"&_
+				"Attachment:英里中盘.png|", "000000", 0, 0.9, os_x, os_y
+				
+				If os_x > 0 Then 
+					TracePrint "os:找到一个技能"
+					Tap os_x + 760, os_y
+					os_pt = SmartOcr(809, 603, 952, 654) + 0
+				End If
+				
+				TracePrint os_pt
+				Swipe 500, 1000, 500, 750
+				os_page = os_page + 1
+				Delay 3000
+				
+			Wend
+			
+			
+		Case 308
+			
+			//先拿到蓝技//
+			os_page = 0
+			While os_skill = 0 or os_page < 6
+				Swipe 500, 1000, 500, 750
+				os_page = os_page + 1
+				Delay 3000
+				FindPic 0, 0, 0, 0, "Attachment:好运一息.png|"&_
+				"Attachment:直线回复.png|", "000000", 0, 0.9, os_x, os_y
+				If os_x > 0 Then 
+					TracePrint "os:找到好运一息"
+					Tap os_x + 760, os_y
+					os_skill = 1
+				End If
+			Wend
+			
+			//滑到最上//
+			Swipe 500, 750, 500, 1500
+			Swipe 500, 750, 500, 1500
+			
+			os_page = 0
+			While os_pt > 180 or os_page < 6
+			
+				FindPic 0, 0, 0, 0, "Attachment:垂直回避.png|"&_
+				"Attachment:末脚.png|"&_
+				"Attachment:小特技能.png|"&_
+				"Attachment:琵琶技能.png|"&_
+				"Attachment:根干.png|"&_
+				"Attachment:中山.png|"&_
+				"Attachment:外圈得意.png|"&_
+				"Attachment:右回.png|"&_
+				"Attachment:道良.png|"&_
+				"Attachment:拔出准备上位.png|"&_
+				"Attachment:拔出准备.png|"&_
+				"Attachment:一文字.png|"&_
+				"Attachment:直线巧者.png|"&_
+				"Attachment:弯道加速.png|"&_
+				"Attachment:上升气流.png|"&_
+				"Attachment:英里中盘.png|", "000000", 0, 0.9, os_x, os_y
+				
+				If os_x > 0 Then 
+					TracePrint "os:找到一个技能"
+					Tap os_x + 760, os_y
+					os_pt = SmartOcr(809, 603, 952, 654) + 0
+				End If
+				
+				TracePrint os_pt
+				Swipe 500, 1000, 500, 750
+				os_page = os_page + 1
+				Delay 3000
+				
+			Wend
+			
+	End Select
+	
+	//第三步，确认与退出//
+	Call Tap_single("p_skill_confirm", 500)
+	Call Check_error_s("i_skill_windows_1", 500)
+	Call Tap_single("p_skill_windows_confirm", 500)
+	Call Check_error_s("i_skill_windows_2", 500)
+	Call Tap_single("p_skill_windows_quit", 500)
+	Call Tap_single("p_skill_quit", 500)
+	Call Check_error_s("i_main_1", 500)
+	TracePrint "退出os函数"
+	
+End Function
+
+Function Operation_race(or_time)
+	
+	TracePrint "进入or函数"
+	
+	Dim or_x, or_y, or_page
+	TracePrint "or：找到日期，开始检索"
+	
+    For or_page = 1 To 3 Step 1
+    	KeepCapture
+    	FindPic 0, 0, 0, 0, "Attachment:i_selrace_"&or_time&".png", "000000", 0, 0.8, or_x, or_y
+    	If or_x > -1 Then 
+    		Tap or_x, or_y
+    		Delay 500
+    		ReleaseCapture
+    		TracePrint "or:已找到合适的比赛并点击"
+    		TracePrint "退出or函数"
+    		Exit Function
+    	End If
+    	ReleaseCapture 
+    	TracePrint "or:该页没有找到合适的比赛，滑动至下一页"
+    	Swipe 1017, 1189, 1007, 1055
+    	Delay 2000
+    Next
+
+	TracePrint "（报错）or:找不到合适的比赛"
+	
+End Function
+
+Function Check_error_s(ces_code, ces_delay)
+	
+	TracePrint "进入ces函数"
+	Delay ces_delay
+	If Finder_image(ces_code) = False Then 
+		TracePrint "（报错，到达合理画面可需重启）cei：程序故障"
+		EndScript
+	End If
+	TracePrint "退出ces函数"
+	
+End Function
+
+Function Check_error_i(cei_code, ces_times)
+	
+	TracePrint "进入cei函数"
+	Dim cei_counter
+	For cei_counter = 1 To ces_times Step 1
+	
+		TracePrint "cei：进入第个"&cei_counter&"循环"
+		If Finder_image(cei_code) = True Then 
+			TracePrint "退出cei函数"
+			Exit Function
+		ElseIf Finder_image("i_reconnection") = True Then
+			TracePrint "cei：网络错误，已点击重连"
+			Call Tap_single("p_reconnection_confirm", 500)
+		End If
+		TracePrint "cei：暂未进入下一个界面，继续等待..."
+		Delay 500
+		
+	Next
+
+	TracePrint "（报错，到达合理画面可需重启）cei：网络故障"
+	EndScript
+
+End Function
